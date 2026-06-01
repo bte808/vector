@@ -71,3 +71,6 @@ local/
 
 # vscode
 .vscode/
+
+# Claude skill-generated reports (published to Confluence, not tracked)
+.claude/skill-reports/

@@ -44,6 +44,7 @@ Arnova
 arshiyasolei
 Asus
 Atlassian
+atlassian
 atleastonce
 atmostonce
 Attab
@@ -69,6 +70,7 @@ bitflags
 bitnami
 bitwidth
 blackbox
+blockquotes
 Blaupunkt
 Blusens
 buildname
@@ -85,6 +87,7 @@ Ceph
 Chromecast
 Citrix
 cksum
+claude
 Cloudflare
 Cloudfone
 Cmx
@@ -237,6 +240,7 @@ HTTPDATE
 https
 Huawei
 humungus
+hyperlinked
 Hyundai
 icecream
 Ideapad
@@ -322,10 +326,12 @@ LYF
 macbook
 Malata
 manden
+maxdepth
 maxmind
 maxminddb
 Maxthon
 MCRF
+mcp
 Mediacom
 Medion
 MEF
@@ -386,6 +392,7 @@ ntapi
 ntfs
 Odys
 onig
+oneline
 opendal
 Openpeak
 OPENPGP
@@ -579,3 +586,4 @@ grpcurl
 linting
 lexers
 binstalled
+lcov

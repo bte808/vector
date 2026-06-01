@@ -35,6 +35,7 @@ jobs:
 
           scopes: |
             administration
+            ai
             api
             api top
             api tap
