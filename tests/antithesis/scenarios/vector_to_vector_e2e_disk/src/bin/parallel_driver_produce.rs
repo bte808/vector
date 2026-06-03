@@ -8,7 +8,7 @@
 
 extern crate antithesis_instrumentation;
 
-use antithesis_sdk::{antithesis_init, assert_reachable};
+use antithesis_sdk::{antithesis_init, assert_reachable, assert_unreachable};
 use clap::Parser;
 use harness::payload_field;
 use serde_json::json;
@@ -52,14 +52,18 @@ async fn claim(client: &reqwest::Client, oracle_url: &str) -> Option<u64> {
     resp.text().await.ok()?.trim().parse().ok()
 }
 
-/// Tell the oracle head acked this id, so it must come back.
-async fn report_acked(client: &reqwest::Client, oracle_url: &str, id: u64) {
-    let _ = client
-        .post(format!("{oracle_url}/acked"))
-        .timeout(time::Duration::from_secs(10))
-        .body(id.to_string())
-        .send()
-        .await;
+/// Tell the oracle head acked this id, so it must come back. Returns whether the
+/// oracle recorded the obligation.
+async fn report_acked(client: &reqwest::Client, oracle_url: &str, id: u64) -> bool {
+    matches!(
+        client
+            .post(format!("{oracle_url}/acked"))
+            .timeout(time::Duration::from_secs(10))
+            .body(id.to_string())
+            .send()
+            .await,
+        Ok(resp) if resp.status().is_success()
+    )
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -75,8 +79,20 @@ async fn main() {
         // Tight timeout. A head wedged by the underflow blocks forever, so we stop
         // waiting and retry the same id.
         if post_event(&client, &args.source_url, id, time::Duration::from_secs(5)).await {
-            report_acked(&client, &args.oracle_url, id).await;
-            assert_reachable!("produce driver got an end-to-end ack", &json!({ "id": id }));
+            // head took durable responsibility, so the oracle must record the
+            // obligation or a later loss of this id goes uncounted. /acked is a
+            // loopback call to the oracle, which is never killed, frozen, or
+            // network-faulted, so a failure here is anomalous: fail loudly rather
+            // than leave an acked id the oracle never expects. The id is dropped;
+            // the next invocation claims a fresh one.
+            if report_acked(&client, &args.oracle_url, id).await {
+                assert_reachable!("produce driver got an end-to-end ack", &json!({ "id": id }));
+            } else {
+                assert_unreachable!(
+                    "head acked an id but the oracle did not record the obligation",
+                    &json!({ "id": id })
+                );
+            }
             return;
         }
         time::sleep(time::Duration::from_millis(100)).await;
