@@ -53,7 +53,7 @@ separately from the `fetch_sub`. Under disk_v2's single-writer model (writer onl
 increments) a concurrent increment only makes the subtraction safer, so this cannot
 mask a real underflow.
 
-## Harness-side (`vector_to_vector_e2e_disk/src/bin`, always compiled with SDK `full`)
+## Harness-side (`harness/src/bin`, shared by all scenarios, always compiled with SDK `full`)
 
 - **oracle.rs** — `assert_always!(was_issued)` online integrity / no-spurious on
   every `/ingest`; `assert_reachable!` first end-to-end delivery; `assert_reachable!`

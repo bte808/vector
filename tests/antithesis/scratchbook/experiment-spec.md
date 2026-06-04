@@ -207,9 +207,11 @@ anti-vacuity rotation guards (assertion 5) fire.
 
 ## Launch: `persistent_storage` endpoint + targeted faults
 
-Launch through the scenario's `launch.sh`, never a hand-typed `snouty launch` — the
-script pins the webhook, config directory, and fault profile so every shot is
-identical (see `tests/antithesis/AGENTS.md`). The pinned profile:
+Launch through the generic `scenarios/launch.sh <scenario>`, never a hand-typed
+`snouty launch` — it pins the webhook, config directory, and fault-profile shape so
+every shot is identical, with the per-scenario SUT node list in
+`<scenario>/launch.env` (see `tests/antithesis/AGENTS.md`). The pinned profile for
+this scenario:
 
 ```
 snouty launch --webhook persistent_storage --config <dir> --duration 30 \

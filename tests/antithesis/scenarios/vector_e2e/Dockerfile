@@ -24,7 +24,7 @@ ARG SANCOV_RUSTFLAGS
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --no-default-features \
-      --features "sources-http_server,sinks-http,sources-internal_metrics,sinks-prometheus,sources-demo_logs,sources-vector,sinks-vector,antithesis" \
+      --features "sources-http_server,sinks-http,sources-internal_metrics,sinks-prometheus,antithesis" \
       --bin vector \
       --config 'build.target = "x86_64-unknown-linux-gnu"' \
       --config 'profile.release.debug = true' \
@@ -55,8 +55,7 @@ COPY tests ./tests
 COPY vdev ./vdev
 COPY scripts ./scripts
 ARG SANCOV_RUSTFLAGS
-# debug=true keeps DWARF for /symbols (the harness has no own release profile now
-# that it is a workspace member).
+# debug=true keeps DWARF for /symbols.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release -p harness \
@@ -71,24 +70,22 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     && echo "instrumentation OK"
 
 #####################################
-# Runtime: Vector SUT (one per node) #
+# Runtime: Vector SUT (the one node) #
 #####################################
 FROM debian:stable-slim AS vector
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=vector-build /usr/local/bin/vector /usr/bin/vector
-# Bake the node configs (compose picks one per node via --config) plus head's
-# benign alternate, which the reload fault swaps in to force a sink rebuild.
-COPY tests/antithesis/scenarios/vector_to_vector_e2e_disk/head.yaml /etc/vector/head.yaml
-COPY tests/antithesis/scenarios/vector_to_vector_e2e_disk/head.b.yaml /etc/vector/head.b.yaml
-COPY tests/antithesis/scenarios/vector_to_vector_e2e_disk/tail.yaml /etc/vector/tail.yaml
+# Bake the node config plus its benign alternate, which the reload fault swaps in
+# to force a sink rebuild.
+COPY tests/antithesis/scenarios/vector_e2e/vector.yaml /etc/vector/vector.yaml
+COPY tests/antithesis/scenarios/vector_e2e/vector.b.yaml /etc/vector/vector.b.yaml
 # The reload fault is an anytime_ test command that runs IN the node container.
-# It is a no-op on tail (no VECTOR_CONFIG_ALT). The node stays running because
-# its entrypoint is Vector, not a test command.
-COPY --chmod=755 tests/antithesis/scenarios/vector_to_vector_e2e_disk/anytime_reload.sh /opt/antithesis/test/v1/v2v/anytime_reload
-RUN mkdir -p /var/lib/vector /symbols && ln -s /usr/bin/vector /symbols/vector
+# The node stays running because its entrypoint is Vector, not a test command.
+COPY --chmod=755 tests/antithesis/scenarios/vector_e2e/anytime_reload.sh /opt/antithesis/test/v1/ve2e/anytime_reload
+RUN mkdir -p /symbols && ln -s /usr/bin/vector /symbols/vector
 ENV NO_COLOR=1
-EXPOSE 6000 8080 9598
+EXPOSE 8080 9598
 ENTRYPOINT ["/usr/bin/vector"]
 
 ###################################
@@ -100,14 +97,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
 # The oracle is the entrypoint. The two test-command binaries are the test commands:
 # drop them straight into the test template, named by their Antithesis prefix.
 COPY --from=workload-build /usr/local/bin/oracle /usr/bin/oracle
-COPY --from=workload-build /usr/local/bin/parallel_driver_produce /opt/antithesis/test/v1/v2v/parallel_driver_produce
-COPY --from=workload-build /usr/local/bin/eventually_conservation /opt/antithesis/test/v1/v2v/eventually_conservation
+COPY --from=workload-build /usr/local/bin/parallel_driver_produce /opt/antithesis/test/v1/ve2e/parallel_driver_produce
+COPY --from=workload-build /usr/local/bin/eventually_conservation /opt/antithesis/test/v1/ve2e/eventually_conservation
 # Symbolize all three instrumented binaries: the oracle entrypoint and both
 # test-command bins. A crash in any of them must resolve against /symbols.
 RUN mkdir -p /symbols \
  && ln -s /usr/bin/oracle /symbols/oracle \
- && ln -s /opt/antithesis/test/v1/v2v/parallel_driver_produce /symbols/parallel_driver_produce \
- && ln -s /opt/antithesis/test/v1/v2v/eventually_conservation /symbols/eventually_conservation
+ && ln -s /opt/antithesis/test/v1/ve2e/parallel_driver_produce /symbols/parallel_driver_produce \
+ && ln -s /opt/antithesis/test/v1/ve2e/eventually_conservation /symbols/eventually_conservation
 ENV NO_COLOR=1
 # The oracle waits for the SUT, emits setup_complete via the SDK, then serves so
 # Antithesis runs the test commands in this container.

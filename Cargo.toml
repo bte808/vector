@@ -133,7 +133,6 @@ members = [
   "lib/vector-vrl/tests",
   "lib/vector-vrl/web-playground",
   "tests/antithesis/harness",
-  "tests/antithesis/scenarios/vector_to_vector_e2e_disk",
   "vdev",
 ]
 

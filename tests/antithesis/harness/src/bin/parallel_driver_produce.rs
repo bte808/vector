@@ -1,4 +1,4 @@
-//! Drive one logical event into head under fault injection.
+//! Drive one logical event into the pipeline source under fault injection.
 //!
 //! On a 2xx we relay an ack-back so the oracle expects the id to come back
 //! out. If we give up before any 2xx, the id was never acked, so it is no
@@ -24,8 +24,8 @@ struct Args {
     oracle_url: String,
 }
 
-/// POST one event to head. Ok(2xx) means head took durable responsibility for the
-/// event (with e2e acks enabled).
+/// POST one event to the source. Ok(2xx) means the pipeline took end-to-end
+/// responsibility for the event (with e2e acks enabled).
 async fn post_event(
     client: &reqwest::Client,
     source_url: &str,
@@ -52,8 +52,8 @@ async fn claim(client: &reqwest::Client, oracle_url: &str) -> Option<u64> {
     resp.text().await.ok()?.trim().parse().ok()
 }
 
-/// Tell the oracle head acked this id, so it must come back. Returns whether the
-/// oracle recorded the obligation.
+/// Tell the oracle the pipeline acked this id, so it must come back. Returns
+/// whether the oracle recorded the obligation.
 async fn report_acked(client: &reqwest::Client, oracle_url: &str, id: u64) -> bool {
     matches!(
         client
@@ -76,10 +76,10 @@ async fn main() {
         return; // oracle unreachable; nothing to do this invocation
     };
     for _ in 0..MAX_ATTEMPTS {
-        // Tight timeout. A head wedged by the underflow blocks forever, so we stop
-        // waiting and retry the same id.
+        // Tight timeout. A wedged source blocks forever, so we stop waiting and
+        // retry the same id.
         if post_event(&client, &args.source_url, id, time::Duration::from_secs(5)).await {
-            // head took durable responsibility, so the oracle must record the
+            // The pipeline took end-to-end responsibility, so the oracle must record the
             // obligation or a later loss of this id goes uncounted. /acked is a
             // loopback call to the oracle, which is never killed, frozen, or
             // network-faulted, so a failure here is anomalous: fail loudly rather
@@ -89,7 +89,7 @@ async fn main() {
                 assert_reachable!("produce driver got an end-to-end ack", &json!({ "id": id }));
             } else {
                 assert_unreachable!(
-                    "head acked an id but the oracle did not record the obligation",
+                    "the pipeline acked an id but the oracle did not record the obligation",
                     &json!({ "id": id })
                 );
             }
